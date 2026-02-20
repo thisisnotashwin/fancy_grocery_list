@@ -130,7 +130,7 @@ def done():
     config = Config()
     session.processed_ingredients = run_pantry_check(session.processed_ingredients)
 
-    need_to_buy = [i for i in session.processed_ingredients if not i.confirmed_have]
+    need_to_buy = [i for i in session.processed_ingredients if i.confirmed_have is False]
     console.print(f"\n[bold]{len(need_to_buy)}[/bold] items to buy.\n")
 
     output = format_grocery_list(need_to_buy, config)
