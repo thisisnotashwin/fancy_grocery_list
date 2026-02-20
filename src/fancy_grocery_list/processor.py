@@ -1,6 +1,5 @@
 from __future__ import annotations
 import json
-import re
 import anthropic
 from fancy_grocery_list.models import RawIngredient, ProcessedIngredient
 from fancy_grocery_list.config import Config
@@ -12,9 +11,10 @@ class ProcessorError(Exception):
 
 def _extract_json(text: str) -> str:
     """Extract JSON array from text that may contain extra prose."""
-    match = re.search(r"\[.*\]", text, re.DOTALL)
-    if match:
-        return match.group(0)
+    start = text.find("[")
+    end = text.rfind("]")
+    if start != -1 and end != -1 and start < end:
+        return text[start : end + 1]
     return text
 
 

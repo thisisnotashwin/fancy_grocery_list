@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from fancy_grocery_list.models import GrocerySession
@@ -11,7 +12,7 @@ def _now() -> datetime:
 
 def _make_id(name: str | None) -> str:
     date = _now().strftime("%Y-%m-%d")
-    suffix = name.replace(" ", "-").lower() if name else "session"
+    suffix = re.sub(r"[^\w-]", "", name.replace(" ", "-")).lower() if name else "session"
     return f"{date}-{suffix}"
 
 
@@ -56,11 +57,16 @@ class SessionManager:
         self.save(session)
 
     def list_sessions(self) -> list[GrocerySession]:
+        from rich.console import Console
+        console = Console()
         sessions = []
         for path in sorted(self.base_dir.glob("*.json")):
             if path.name == "current.json":
                 continue
-            sessions.append(GrocerySession.model_validate_json(path.read_text()))
+            try:
+                sessions.append(GrocerySession.model_validate_json(path.read_text()))
+            except Exception:
+                console.print(f"[yellow]Warning: could not read session file {path.name}[/yellow]")
         return sessions
 
     def open_session(self, session_id: str) -> GrocerySession:

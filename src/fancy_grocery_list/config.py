@@ -1,5 +1,4 @@
 from __future__ import annotations
-import os
 from pathlib import Path
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -54,7 +53,6 @@ class Config(BaseSettings):
     @field_validator("anthropic_api_key", mode="after")
     @classmethod
     def require_api_key(cls, v: str) -> str:
-        env_val = os.environ.get("ANTHROPIC_API_KEY", v)
-        if not env_val:
+        if not v:
             raise ValueError("ANTHROPIC_API_KEY environment variable is required")
-        return env_val
+        return v
