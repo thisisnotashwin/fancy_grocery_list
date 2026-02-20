@@ -31,3 +31,4 @@ packages = ["src/fancy_grocery_list"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]

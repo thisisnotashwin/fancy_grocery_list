@@ -1,6 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 import click
+from pydantic import ValidationError
 from rich.console import Console
 from rich.table import Table
 from fancy_grocery_list.config import Config
@@ -13,6 +14,7 @@ from fancy_grocery_list.formatter import format_grocery_list
 from fancy_grocery_list.models import RawIngredient
 
 console = Console()
+err_console = Console(stderr=True)
 
 
 @click.group()
@@ -43,10 +45,14 @@ def add(html_file: str | None):
     try:
         session = manager.load_current()
     except FileNotFoundError as e:
-        console.print(f"[red]Error:[/red] {e}")
-        return
+        err_console.print(f"[red]Error:[/red] {e}")
+        raise SystemExit(1)
 
-    config = Config()
+    try:
+        config = Config()
+    except ValidationError:
+        err_console.print("[red]Error:[/red] ANTHROPIC_API_KEY environment variable is not set.")
+        raise SystemExit(1)
     added_count = 0
 
     console.print("\n[bold]Add recipes[/bold] (press Enter with no URL to finish)\n")
@@ -118,8 +124,14 @@ def done():
     try:
         session = manager.load_current()
     except FileNotFoundError as e:
-        console.print(f"[red]Error:[/red] {e}")
-        return
+        err_console.print(f"[red]Error:[/red] {e}")
+        raise SystemExit(1)
+
+    try:
+        config = Config()
+    except ValidationError:
+        err_console.print("[red]Error:[/red] ANTHROPIC_API_KEY environment variable is not set.")
+        raise SystemExit(1)
 
     if not session.processed_ingredients:
         console.print(
@@ -127,7 +139,6 @@ def done():
         )
         return
 
-    config = Config()
     session.processed_ingredients = run_pantry_check(session.processed_ingredients)
 
     need_to_buy = [i for i in session.processed_ingredients if i.confirmed_have is False]
@@ -187,4 +198,5 @@ def open_session(session_id: str | None):
             "or [bold]grocery done[/bold] to finalize."
         )
     except FileNotFoundError as e:
-        console.print(f"[red]Error:[/red] {e}")
+        err_console.print(f"[red]Error:[/red] {e}")
+        raise SystemExit(1)
