@@ -1,0 +1,33 @@
+[project]
+name = "fancy-grocery-list"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "click>=8.0",
+    "httpx>=0.27",
+    "recipe-scrapers>=15.0",
+    "anthropic>=0.40",
+    "rich>=13.0",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-mock>=3.14",
+    "pytest-httpx>=0.30",
+]
+
+[project.scripts]
+grocery = "fancy_grocery_list.cli:cli"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fancy_grocery_list"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
