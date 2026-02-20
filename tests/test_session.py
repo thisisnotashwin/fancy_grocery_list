@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 import pytest
 from fancy_grocery_list.session import SessionManager
@@ -70,3 +71,15 @@ def test_open_sets_as_current(manager):
     manager.open_session(s1.id)
     current = manager.load_current()
     assert current.id == s1.id
+
+
+def test_list_sessions_warns_via_logging_not_rich(manager, tmp_path, caplog):
+    """Corrupt session files should produce a logging.warning, not a Rich console.print."""
+    manager.new(name="good")
+    (tmp_path / "bad.json").write_text("not valid json{")
+
+    with caplog.at_level(logging.WARNING, logger="fancy_grocery_list.session"):
+        sessions = manager.list_sessions()
+
+    assert len(sessions) == 1
+    assert any("bad.json" in msg for msg in caplog.messages)

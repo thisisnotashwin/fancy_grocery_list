@@ -1,4 +1,5 @@
 from __future__ import annotations
+import click
 from rich.console import Console
 from fancy_grocery_list.models import ProcessedIngredient
 
@@ -15,8 +16,8 @@ def run_pantry_check(ingredients: list[ProcessedIngredient]) -> list[ProcessedIn
 
     for ingredient in to_check:
         while True:
-            answer = input(
-                f"  Do you have {ingredient.quantity} {ingredient.name}? (y/n): "
+            answer = click.prompt(
+                f"  Do you have {ingredient.quantity} {ingredient.name}? (y/n)"
             ).strip().lower()
             if answer in ("y", "yes"):
                 ingredient.confirmed_have = True

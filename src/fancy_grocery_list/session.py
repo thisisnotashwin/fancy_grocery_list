@@ -1,9 +1,12 @@
 from __future__ import annotations
 import json
+import logging
 import re
 from datetime import datetime, timezone
 from pathlib import Path
 from fancy_grocery_list.models import GrocerySession
+
+logger = logging.getLogger(__name__)
 
 
 def _now() -> datetime:
@@ -57,8 +60,6 @@ class SessionManager:
         self.save(session)
 
     def list_sessions(self) -> list[GrocerySession]:
-        from rich.console import Console
-        console = Console()
         sessions = []
         for path in sorted(self.base_dir.glob("*.json")):
             if path.name == "current.json":
@@ -66,7 +67,7 @@ class SessionManager:
             try:
                 sessions.append(GrocerySession.model_validate_json(path.read_text()))
             except Exception:
-                console.print(f"[yellow]Warning: could not read session file {path.name}[/yellow]")
+                logger.warning("Could not read session file %s", path.name)
         return sessions
 
     def open_session(self, session_id: str) -> GrocerySession:
