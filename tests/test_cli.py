@@ -15,6 +15,13 @@ def test_module_invocation_works():
     assert "grocery" in result.stdout.lower() or "Usage" in result.stdout
 
 
+def test_recipe_add_is_subcommand_of_recipe_group():
+    runner = CliRunner()
+    result = runner.invoke(cli, ["recipe", "--help"])
+    assert result.exit_code == 0
+    assert "add" in result.output
+
+
 @patch("fancy_grocery_list.cli.SessionManager")
 def test_add_exits_nonzero_when_no_active_session(MockManager):
     mock_manager = MagicMock()
@@ -22,7 +29,7 @@ def test_add_exits_nonzero_when_no_active_session(MockManager):
     MockManager.return_value = mock_manager
 
     runner = CliRunner()
-    result = runner.invoke(cli, ["add"])
+    result = runner.invoke(cli, ["recipe", "add"])
 
     assert result.exit_code == 1
     assert "No active session" in result.output
@@ -65,7 +72,7 @@ def test_add_exits_nonzero_on_missing_api_key(MockManager):
         # Unset ANTHROPIC_API_KEY so Config() raises ValidationError
         import os
         os.environ.pop("ANTHROPIC_API_KEY", None)
-        result = runner.invoke(cli, ["add"])
+        result = runner.invoke(cli, ["recipe", "add"])
 
     assert result.exit_code == 1
     assert "ANTHROPIC_API_KEY" in result.output
