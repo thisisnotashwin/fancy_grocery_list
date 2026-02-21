@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 import pytest
 from fancy_grocery_list.session import SessionManager
+from fancy_grocery_list.staples import StapleManager
 from fancy_grocery_list.models import GrocerySession, RecipeData
 
 
@@ -71,6 +72,24 @@ def test_open_sets_as_current(manager):
     manager.open_session(s1.id)
     current = manager.load_current()
     assert current.id == s1.id
+
+
+def test_new_session_loads_staples(tmp_path):
+    StapleManager(base_dir=tmp_path).add("eggs", "1 dozen")
+    StapleManager(base_dir=tmp_path).add("butter", "1 stick")
+
+    session = SessionManager(base_dir=tmp_path).new()
+
+    sources = [item.recipe_title for item in session.extra_items]
+    assert sources == ["[staple]", "[staple]"]
+    texts = [item.text for item in session.extra_items]
+    assert "1 dozen eggs" in texts
+    assert "1 stick butter" in texts
+
+
+def test_new_session_with_no_staples_has_empty_extra_items(tmp_path):
+    session = SessionManager(base_dir=tmp_path).new()
+    assert session.extra_items == []
 
 
 def test_list_sessions_warns_via_logging_not_rich(manager, tmp_path, caplog):

@@ -4,7 +4,8 @@ import logging
 import re
 from datetime import datetime, timezone
 from pathlib import Path
-from fancy_grocery_list.models import GrocerySession
+from fancy_grocery_list.models import GrocerySession, RawIngredient
+from fancy_grocery_list.staples import StapleManager
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,9 @@ class SessionManager:
     def new(self, name: str | None = None) -> GrocerySession:
         now = _now()
         session = GrocerySession(id=_make_id(name), name=name, created_at=now, updated_at=now)
+        for staple in StapleManager(base_dir=self.base_dir).list():
+            text = f"{staple.quantity} {staple.name}".strip()
+            session.extra_items.append(RawIngredient(text=text, recipe_title="[staple]", recipe_url=""))
         self.save(session)
         self._set_current(session.id)
         return session
