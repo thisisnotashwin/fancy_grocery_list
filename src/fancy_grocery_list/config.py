@@ -23,6 +23,19 @@ class Config(BaseSettings):
         "Beverages",
         "Other",
     ]
+    section_emoji: dict[str, str] = {
+        "Produce": "🥦",
+        "Meat & Seafood": "🥩",
+        "Dairy & Eggs": "🧀",
+        "Bakery & Bread": "🍞",
+        "Pantry & Dry Goods": "🧴",
+        "Canned & Jarred Goods": "🥫",
+        "Frozen": "🧊",
+        "Spices & Seasonings": "🧂",
+        "Oils & Condiments": "🫙",
+        "Beverages": "🧃",
+        "Other": "🛒",
+    }
     system_prompt: str = (
         "You are a kitchen assistant that processes recipe ingredients. "
         "Given raw ingredient strings from one or more recipes, you must:\n"

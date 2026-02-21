@@ -26,3 +26,18 @@ def test_config_default_model(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "key")
     config = Config()
     assert config.anthropic_model == "claude-opus-4-6"
+
+
+def test_config_has_section_emoji(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "key")
+    config = Config()
+    assert isinstance(config.section_emoji, dict)
+    assert config.section_emoji.get("Produce") == "🥦"
+    assert config.section_emoji.get("Other") == "🛒"
+
+
+def test_section_emoji_covers_all_sections(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "key")
+    config = Config()
+    for section in config.store_sections:
+        assert section in config.section_emoji, f"Missing emoji for section: {section}"
