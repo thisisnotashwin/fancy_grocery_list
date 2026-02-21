@@ -25,6 +25,11 @@ class RecipeData(BaseModel):
     scale: float = 1.0
 
 
+class PantryItem(BaseModel):
+    name: str
+    quantity: str = ""
+
+
 class GrocerySession(BaseModel):
     version: int = 1
     id: str

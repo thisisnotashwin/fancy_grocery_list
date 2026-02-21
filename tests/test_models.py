@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, timezone
 from fancy_grocery_list.models import (
-    RawIngredient, ProcessedIngredient, RecipeData, GrocerySession
+    RawIngredient, ProcessedIngredient, RecipeData, GrocerySession, PantryItem
 )
 
 
@@ -83,3 +83,14 @@ def test_grocery_session_loads_recipe_without_scale_field():
     }
     session = GrocerySession.model_validate(raw)
     assert session.recipes[0].scale == 1.0
+
+
+def test_pantry_item_defaults():
+    item = PantryItem(name="olive oil")
+    assert item.name == "olive oil"
+    assert item.quantity == ""
+
+
+def test_pantry_item_with_quantity():
+    item = PantryItem(name="olive oil", quantity="1 bottle")
+    assert item.quantity == "1 bottle"
