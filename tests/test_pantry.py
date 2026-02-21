@@ -1,6 +1,8 @@
+import json
+from pathlib import Path
 import click
 from click.testing import CliRunner
-from fancy_grocery_list.pantry import run_pantry_check
+from fancy_grocery_list.pantry import run_pantry_check, PantryManager
 from fancy_grocery_list.models import ProcessedIngredient
 
 
@@ -63,3 +65,59 @@ def test_invalid_input_reprompts(monkeypatch):
     ingredients = [_make_ingredient("garlic")]
     result = run_pantry_check(ingredients)
     assert result[0].confirmed_have is False
+
+
+def test_pantry_add(tmp_path):
+    mgr = PantryManager(base_dir=tmp_path)
+    mgr.add("olive oil")
+    items = mgr.list()
+    assert len(items) == 1
+    assert items[0].name == "olive oil"
+    assert items[0].quantity == ""
+
+
+def test_pantry_add_with_quantity(tmp_path):
+    mgr = PantryManager(base_dir=tmp_path)
+    mgr.add("olive oil", "1 bottle")
+    assert mgr.list()[0].quantity == "1 bottle"
+
+
+def test_pantry_add_duplicate_is_idempotent(tmp_path):
+    mgr = PantryManager(base_dir=tmp_path)
+    mgr.add("olive oil")
+    mgr.add("olive oil")
+    assert len(mgr.list()) == 1
+
+
+def test_pantry_remove(tmp_path):
+    mgr = PantryManager(base_dir=tmp_path)
+    mgr.add("olive oil")
+    mgr.add("kosher salt")
+    mgr.remove("olive oil")
+    names = [p.name for p in mgr.list()]
+    assert "olive oil" not in names
+    assert "kosher salt" in names
+
+
+def test_pantry_remove_nonexistent_is_silent(tmp_path):
+    mgr = PantryManager(base_dir=tmp_path)
+    mgr.remove("ghost item")  # should not raise
+
+
+def test_pantry_names_returns_set(tmp_path):
+    mgr = PantryManager(base_dir=tmp_path)
+    mgr.add("olive oil")
+    mgr.add("kosher salt")
+    assert mgr.names() == {"olive oil", "kosher salt"}
+
+
+def test_pantry_persists_across_instances(tmp_path):
+    PantryManager(base_dir=tmp_path).add("olive oil")
+    loaded = PantryManager(base_dir=tmp_path).list()
+    assert loaded[0].name == "olive oil"
+
+
+def test_pantry_empty_by_default(tmp_path):
+    mgr = PantryManager(base_dir=tmp_path)
+    assert mgr.list() == []
+    assert mgr.names() == set()

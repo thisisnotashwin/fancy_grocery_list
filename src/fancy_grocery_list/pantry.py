@@ -1,9 +1,36 @@
 from __future__ import annotations
+import json
+from pathlib import Path
 import click
 from rich.console import Console
-from fancy_grocery_list.models import ProcessedIngredient
+from fancy_grocery_list.models import ProcessedIngredient, PantryItem
 
 console = Console()
+
+
+class PantryManager:
+    def __init__(self, base_dir: Path | None = None):
+        self._path = (base_dir or (Path.home() / ".grocery_lists")) / "pantry.json"
+
+    def list(self) -> list[PantryItem]:
+        if not self._path.exists():
+            return []
+        return [PantryItem.model_validate(p) for p in json.loads(self._path.read_text())]
+
+    def add(self, name: str, quantity: str = "") -> None:
+        items = self.list()
+        if not any(p.name == name for p in items):
+            items.append(PantryItem(name=name, quantity=quantity))
+            self._save(items)
+
+    def remove(self, name: str) -> None:
+        self._save([p for p in self.list() if p.name != name])
+
+    def names(self) -> set[str]:
+        return {p.name for p in self.list()}
+
+    def _save(self, items: list[PantryItem]) -> None:
+        self._path.write_text(json.dumps([p.model_dump() for p in items], indent=2))
 
 
 def run_pantry_check(ingredients: list[ProcessedIngredient]) -> list[ProcessedIngredient]:
