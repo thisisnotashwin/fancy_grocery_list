@@ -262,6 +262,70 @@ def test_staple_list_command_empty(MockStapleManager):
     assert "No staples" in result.output
 
 
+@patch("fancy_grocery_list.cli.SessionManager")
+def test_item_list_shows_manual_items(MockManager):
+    from fancy_grocery_list.models import GrocerySession, RawIngredient
+    from datetime import datetime, timezone
+
+    session = GrocerySession(
+        id="test",
+        created_at=datetime.now(tz=timezone.utc),
+        updated_at=datetime.now(tz=timezone.utc),
+        extra_items=[
+            RawIngredient(text="1 dozen eggs", recipe_title="[added manually]", recipe_url=""),
+            RawIngredient(text="butter", recipe_title="[staple]", recipe_url=""),
+            RawIngredient(text="birthday candles", recipe_title="[added manually]", recipe_url=""),
+        ],
+    )
+    mock_manager = MagicMock()
+    mock_manager.load_current.return_value = session
+    MockManager.return_value = mock_manager
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["item", "list"])
+
+    assert result.exit_code == 0
+    assert "1 dozen eggs" in result.output
+    assert "birthday candles" in result.output
+    assert "butter" not in result.output  # staple, not shown here
+    assert "1." in result.output
+    assert "2." in result.output
+
+
+@patch("fancy_grocery_list.cli.SessionManager")
+def test_item_list_empty(MockManager):
+    from fancy_grocery_list.models import GrocerySession
+    from datetime import datetime, timezone
+
+    session = GrocerySession(
+        id="test",
+        created_at=datetime.now(tz=timezone.utc),
+        updated_at=datetime.now(tz=timezone.utc),
+    )
+    mock_manager = MagicMock()
+    mock_manager.load_current.return_value = session
+    MockManager.return_value = mock_manager
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["item", "list"])
+
+    assert result.exit_code == 0
+    assert "No manually added items" in result.output
+
+
+@patch("fancy_grocery_list.cli.SessionManager")
+def test_item_list_exits_nonzero_when_no_active_session(MockManager):
+    mock_manager = MagicMock()
+    mock_manager.load_current.side_effect = FileNotFoundError("No active session. Run: grocery new")
+    MockManager.return_value = mock_manager
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["item", "list"])
+
+    assert result.exit_code == 1
+    assert "No active session" in result.output
+
+
 def test_process_all_applies_scale_prefix():
     """_process_all must annotate ingredient text when scale != 1.0."""
     from fancy_grocery_list.cli import _process_all

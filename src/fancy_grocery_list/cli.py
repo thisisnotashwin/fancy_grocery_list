@@ -213,6 +213,27 @@ def item_add(name: str, quantity: str):
         manager.save(session)
 
 
+@item.command("list")
+def item_list():
+    """Show manually added items in the current session."""
+    manager = SessionManager()
+    try:
+        session = manager.load_current()
+    except FileNotFoundError as e:
+        err_console.print(f"[red]Error:[/red] {e}")
+        raise SystemExit(1)
+
+    manual_items = [it for it in session.extra_items if it.recipe_title == "[added manually]"]
+    if not manual_items:
+        console.print("No manually added items. Use [bold]grocery item add[/bold] to add some.")
+        return
+
+    console.print("\n[bold]Manually added items[/bold]\n")
+    for i, it in enumerate(manual_items, start=1):
+        console.print(f"  {i}. {it.text}")
+    console.print()
+
+
 @cli.group("staple")
 def staple():
     """Manage your persistent staples list."""
