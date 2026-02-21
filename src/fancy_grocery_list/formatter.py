@@ -14,9 +14,10 @@ def format_grocery_list(ingredients: list[ProcessedIngredient], config: Config) 
     for section in config.store_sections:
         if section not in by_section:
             continue
-        lines.append(f"\n{section}")
-        lines.append("-" * len(section))
+        emoji = config.section_emoji.get(section, "•")
+        lines.append(f"## {emoji} {section}")
         for ingredient in by_section[section]:
-            lines.append(f"[ ] {ingredient.quantity} {ingredient.name}")
+            lines.append(f"- [ ] {ingredient.quantity} {ingredient.name}")
+        lines.append("")
 
     return "\n".join(lines).strip()

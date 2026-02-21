@@ -34,7 +34,7 @@ def test_format_groups_by_section(config):
 def test_format_uses_checkbox_style(config):
     ingredients = [_make_ingredient("garlic", "5 cloves", "Produce")]
     output = format_grocery_list(ingredients, config)
-    assert "[ ] 5 cloves garlic" in output
+    assert "- [ ] 5 cloves garlic" in output
 
 
 def test_format_respects_section_order(config):
@@ -48,6 +48,34 @@ def test_format_respects_section_order(config):
 
 
 def test_format_skips_empty_sections(config):
+    ingredients = [_make_ingredient("garlic", "5 cloves", "Produce")]
+    output = format_grocery_list(ingredients, config)
+    assert "Dairy & Eggs" not in output
+
+
+def test_format_uses_markdown_checkbox(config):
+    ingredients = [_make_ingredient("garlic", "5 cloves", "Produce")]
+    output = format_grocery_list(ingredients, config)
+    assert "- [ ] 5 cloves garlic" in output
+
+
+def test_format_uses_emoji_section_headers(config):
+    ingredients = [_make_ingredient("garlic", "5 cloves", "Produce")]
+    output = format_grocery_list(ingredients, config)
+    assert "## 🥦 Produce" in output
+
+
+def test_format_markdown_groups_by_section(config):
+    ingredients = [
+        _make_ingredient("garlic", "5 cloves", "Produce"),
+        _make_ingredient("flour", "2 cups", "Pantry & Dry Goods"),
+    ]
+    output = format_grocery_list(ingredients, config)
+    assert output.index("Produce") < output.index("garlic")
+    assert output.index("Pantry & Dry Goods") < output.index("flour")
+
+
+def test_format_markdown_skips_empty_sections(config):
     ingredients = [_make_ingredient("garlic", "5 cloves", "Produce")]
     output = format_grocery_list(ingredients, config)
     assert "Dairy & Eggs" not in output
