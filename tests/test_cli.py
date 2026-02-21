@@ -291,6 +291,31 @@ def test_process_all_applies_scale_prefix():
     assert captured_raws[0].text == "[×2.0] 1 cup flour"
 
 
+def test_process_all_no_prefix_for_scale_1():
+    """_process_all must NOT add a prefix when scale == 1.0."""
+    from fancy_grocery_list.cli import _process_all
+    from fancy_grocery_list.models import GrocerySession, RecipeData
+    from datetime import datetime, timezone
+    from unittest.mock import MagicMock, patch
+
+    session = GrocerySession(
+        id="test",
+        created_at=datetime.now(tz=timezone.utc),
+        updated_at=datetime.now(tz=timezone.utc),
+        recipes=[RecipeData(title="Pasta", url="https://example.com", raw_ingredients=["1 cup flour"], scale=1.0)],
+    )
+    captured_raws = []
+
+    def capture(raw_list, config):
+        captured_raws.extend(raw_list)
+        return []
+
+    with patch("fancy_grocery_list.cli.process", side_effect=capture):
+        _process_all(session, MagicMock(), MagicMock())
+
+    assert captured_raws[0].text == "1 cup flour"
+
+
 def test_recipe_add_help_shows_scale_flag():
     runner = CliRunner()
     result = runner.invoke(cli, ["recipe", "add", "--help"])
@@ -326,28 +351,3 @@ def test_recipe_add_scale_stored_on_recipe(MockManager, MockConfig, mock_process
     assert result.exit_code == 0
     assert len(session.recipes) == 1
     assert session.recipes[0].scale == 2.0
-
-
-def test_process_all_no_prefix_for_scale_1():
-    """_process_all must NOT add a prefix when scale == 1.0."""
-    from fancy_grocery_list.cli import _process_all
-    from fancy_grocery_list.models import GrocerySession, RecipeData
-    from datetime import datetime, timezone
-    from unittest.mock import MagicMock, patch
-
-    session = GrocerySession(
-        id="test",
-        created_at=datetime.now(tz=timezone.utc),
-        updated_at=datetime.now(tz=timezone.utc),
-        recipes=[RecipeData(title="Pasta", url="https://example.com", raw_ingredients=["1 cup flour"], scale=1.0)],
-    )
-    captured_raws = []
-
-    def capture(raw_list, config):
-        captured_raws.extend(raw_list)
-        return []
-
-    with patch("fancy_grocery_list.cli.process", side_effect=capture):
-        _process_all(session, MagicMock(), MagicMock())
-
-    assert captured_raws[0].text == "1 cup flour"
