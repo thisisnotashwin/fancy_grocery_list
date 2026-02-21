@@ -22,6 +22,7 @@ class RecipeData(BaseModel):
     title: str
     url: str
     raw_ingredients: list[str]
+    scale: float = 1.0
 
 
 class GrocerySession(BaseModel):

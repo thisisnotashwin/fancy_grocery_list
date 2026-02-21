@@ -57,3 +57,29 @@ def test_grocery_session_loads_without_extra_items_field():
     }
     session = GrocerySession.model_validate(raw)
     assert session.extra_items == []
+
+
+def test_recipe_data_scale_defaults_to_1():
+    recipe = RecipeData(title="Pasta", url="https://example.com", raw_ingredients=["1 cup flour"])
+    assert recipe.scale == 1.0
+
+
+def test_recipe_data_scale_can_be_set():
+    recipe = RecipeData(title="Pasta", url="https://example.com", raw_ingredients=["1 cup flour"], scale=2.5)
+    assert recipe.scale == 2.5
+
+
+def test_grocery_session_loads_recipe_without_scale_field():
+    """Old sessions without scale on recipes must still deserialize."""
+    raw = {
+        "version": 1,
+        "id": "2026-02-20-old",
+        "created_at": "2026-02-20T00:00:00Z",
+        "updated_at": "2026-02-20T00:00:00Z",
+        "recipes": [{"title": "Pasta", "url": "https://example.com", "raw_ingredients": ["1 cup flour"]}],
+        "processed_ingredients": [],
+        "finalized": False,
+        "output_path": None,
+    }
+    session = GrocerySession.model_validate(raw)
+    assert session.recipes[0].scale == 1.0
