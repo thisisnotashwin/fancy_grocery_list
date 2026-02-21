@@ -316,6 +316,69 @@ def test_process_all_no_prefix_for_scale_1():
     assert captured_raws[0].text == "1 cup flour"
 
 
+@patch("fancy_grocery_list.cli.SessionManager")
+def test_recipe_list_shows_recipes(MockManager):
+    from fancy_grocery_list.models import GrocerySession, RecipeData
+    from datetime import datetime, timezone
+
+    session = GrocerySession(
+        id="test",
+        created_at=datetime.now(tz=timezone.utc),
+        updated_at=datetime.now(tz=timezone.utc),
+        recipes=[
+            RecipeData(title="Pasta Bolognese", url="https://example.com/pasta", raw_ingredients=["1 cup flour", "2 eggs"]),
+            RecipeData(title="Chicken Tikka", url="https://example.com/tikka", raw_ingredients=["1 lb chicken"], scale=2.0),
+        ],
+    )
+    mock_manager = MagicMock()
+    mock_manager.load_current.return_value = session
+    MockManager.return_value = mock_manager
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["recipe", "list"])
+
+    assert result.exit_code == 0
+    assert "Pasta Bolognese" in result.output
+    assert "Chicken Tikka" in result.output
+    assert "×2" in result.output
+    assert "1." in result.output
+    assert "2." in result.output
+
+
+@patch("fancy_grocery_list.cli.SessionManager")
+def test_recipe_list_empty(MockManager):
+    from fancy_grocery_list.models import GrocerySession
+    from datetime import datetime, timezone
+
+    session = GrocerySession(
+        id="test",
+        created_at=datetime.now(tz=timezone.utc),
+        updated_at=datetime.now(tz=timezone.utc),
+    )
+    mock_manager = MagicMock()
+    mock_manager.load_current.return_value = session
+    MockManager.return_value = mock_manager
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["recipe", "list"])
+
+    assert result.exit_code == 0
+    assert "No recipes" in result.output
+
+
+@patch("fancy_grocery_list.cli.SessionManager")
+def test_recipe_list_exits_nonzero_when_no_active_session(MockManager):
+    mock_manager = MagicMock()
+    mock_manager.load_current.side_effect = FileNotFoundError("No active session. Run: grocery new")
+    MockManager.return_value = mock_manager
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["recipe", "list"])
+
+    assert result.exit_code == 1
+    assert "No active session" in result.output
+
+
 def test_recipe_add_help_shows_scale_flag():
     runner = CliRunner()
     result = runner.invoke(cli, ["recipe", "add", "--help"])

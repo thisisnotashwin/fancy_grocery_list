@@ -104,6 +104,27 @@ def recipe_add(html_source: str | None, scale: float):
         manager.save(session)
 
 
+@recipe.command("list")
+def recipe_list():
+    """Show recipes in the current session."""
+    manager = SessionManager()
+    try:
+        session = manager.load_current()
+    except FileNotFoundError as e:
+        err_console.print(f"[red]Error:[/red] {e}")
+        raise SystemExit(1)
+
+    if not session.recipes:
+        console.print("No recipes in this session. Run [bold]grocery recipe add[/bold] to add some.")
+        return
+
+    console.print("\n[bold]Recipes in current session[/bold]\n")
+    for i, r in enumerate(session.recipes, start=1):
+        scale_label = f" ×{r.scale}" if r.scale != 1.0 else " ×1"
+        console.print(f"  {i}. {r.title} ({len(r.raw_ingredients)} ingredients,{scale_label})")
+    console.print()
+
+
 def _process_all(session, manager, config: Config) -> None:
     recipe_raw = [
         RawIngredient(
