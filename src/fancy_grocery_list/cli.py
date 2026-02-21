@@ -46,7 +46,11 @@ def recipe():
     "--html", "html_source", default=None, type=str,
     help="URL or path to saved HTML file (for paywalled/single-recipe use)"
 )
-def recipe_add(html_source: str | None):
+@click.option(
+    "--scale", "scale", default=1.0, type=float, show_default=True,
+    help="Scale factor for recipe ingredients (e.g. 2 doubles all quantities)"
+)
+def recipe_add(html_source: str | None, scale: float):
     """Add recipe URLs to the current session."""
     manager = SessionManager()
     try:
@@ -65,7 +69,7 @@ def recipe_add(html_source: str | None):
     console.print("\n[bold]Add recipes[/bold] (press Enter with no URL to finish)\n")
 
     if html_source:
-        _add_from_html(session, manager, html_source, config)
+        _add_from_html(session, manager, html_source, config, scale=scale)
         return
 
     while True:
@@ -76,6 +80,7 @@ def recipe_add(html_source: str | None):
             console.print("  Fetching...", end="\r")
             html = fetch(url)
             recipe_data = scrape(html, url)
+            recipe_data.scale = scale
             session.recipes.append(recipe_data)
             added_count += 1
             console.print(f"  [green]✓[/green] {recipe_data.title} ({len(recipe_data.raw_ingredients)} ingredients)")
@@ -189,7 +194,7 @@ def staple_list():
     console.print()
 
 
-def _add_from_html(session, manager, html_source: str, config: Config) -> None:
+def _add_from_html(session, manager, html_source: str, config: Config, scale: float = 1.0) -> None:
     if html_source.startswith("http://") or html_source.startswith("https://"):
         url = html_source
         try:
@@ -202,6 +207,7 @@ def _add_from_html(session, manager, html_source: str, config: Config) -> None:
         url = click.prompt("  URL for this page (for reference)", default="https://unknown").strip()
     try:
         recipe_data = scrape(html, url)
+        recipe_data.scale = scale
         session.recipes.append(recipe_data)
         console.print(f"  [green]✓[/green] {recipe_data.title} ({len(recipe_data.raw_ingredients)} ingredients)")
         _process_all(session, manager, config)

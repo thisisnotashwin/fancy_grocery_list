@@ -291,6 +291,43 @@ def test_process_all_applies_scale_prefix():
     assert captured_raws[0].text == "[×2.0] 1 cup flour"
 
 
+def test_recipe_add_help_shows_scale_flag():
+    runner = CliRunner()
+    result = runner.invoke(cli, ["recipe", "add", "--help"])
+    assert result.exit_code == 0
+    assert "--scale" in result.output
+
+
+@patch("fancy_grocery_list.cli.fetch")
+@patch("fancy_grocery_list.cli.scrape")
+@patch("fancy_grocery_list.cli.process")
+@patch("fancy_grocery_list.cli.Config")
+@patch("fancy_grocery_list.cli.SessionManager")
+def test_recipe_add_scale_stored_on_recipe(MockManager, MockConfig, mock_process, mock_scrape, mock_fetch):
+    from fancy_grocery_list.models import GrocerySession, RecipeData
+    from datetime import datetime, timezone
+
+    session = GrocerySession(
+        id="test",
+        created_at=datetime.now(tz=timezone.utc),
+        updated_at=datetime.now(tz=timezone.utc),
+    )
+    mock_manager = MagicMock()
+    mock_manager.load_current.return_value = session
+    MockManager.return_value = mock_manager
+    MockConfig.return_value = MagicMock()
+    mock_process.return_value = []
+    mock_fetch.return_value = "<html></html>"
+    mock_scrape.return_value = RecipeData(title="Pasta", url="https://example.com", raw_ingredients=["1 cup flour"])
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["recipe", "add", "--scale", "2"], input="https://example.com\n\n")
+
+    assert result.exit_code == 0
+    assert len(session.recipes) == 1
+    assert session.recipes[0].scale == 2.0
+
+
 def test_process_all_no_prefix_for_scale_1():
     """_process_all must NOT add a prefix when scale == 1.0."""
     from fancy_grocery_list.cli import _process_all
