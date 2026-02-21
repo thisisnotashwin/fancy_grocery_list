@@ -234,6 +234,44 @@ def item_list():
     console.print()
 
 
+@item.command("remove")
+@click.argument("index", type=int)
+def item_remove(index: int):
+    """Remove a manually added item by its index (from 'item list')."""
+    manager = SessionManager()
+    try:
+        session = manager.load_current()
+    except FileNotFoundError as e:
+        err_console.print(f"[red]Error:[/red] {e}")
+        raise SystemExit(1)
+
+    manual_items = [it for it in session.extra_items if it.recipe_title == "[added manually]"]
+    if index < 1 or index > len(manual_items):
+        err_console.print(f"[red]Error:[/red] Index {index} is out of range. Use 'grocery item list' to see valid indices.")
+        raise SystemExit(1)
+
+    target = manual_items[index - 1]
+    session.extra_items.remove(target)
+    console.print(f"[green]✓[/green] Removed: {target.text}")
+
+    if session.recipes or session.extra_items:
+        try:
+            config = Config()
+        except ValidationError:
+            err_console.print("[red]Error:[/red] ANTHROPIC_API_KEY environment variable is not set.")
+            raise SystemExit(1)
+        console.print("[dim]Re-processing ingredients...[/dim]")
+        try:
+            _process_all(session, manager, config)
+            console.print(f"[green]✓[/green] Consolidated to {len(session.processed_ingredients)} ingredients.")
+        except ProcessorError as e:
+            console.print(f"[red]Error processing ingredients:[/red] {e}")
+            manager.save(session)
+    else:
+        session.processed_ingredients = []
+        manager.save(session)
+
+
 @cli.group("staple")
 def staple():
     """Manage your persistent staples list."""

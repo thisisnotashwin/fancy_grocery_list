@@ -326,6 +326,76 @@ def test_item_list_exits_nonzero_when_no_active_session(MockManager):
     assert "No active session" in result.output
 
 
+@patch("fancy_grocery_list.cli.process")
+@patch("fancy_grocery_list.cli.Config")
+@patch("fancy_grocery_list.cli.SessionManager")
+def test_item_remove_removes_by_index(MockManager, MockConfig, mock_process):
+    from fancy_grocery_list.models import GrocerySession, RawIngredient
+    from datetime import datetime, timezone
+
+    session = GrocerySession(
+        id="test",
+        created_at=datetime.now(tz=timezone.utc),
+        updated_at=datetime.now(tz=timezone.utc),
+        extra_items=[
+            RawIngredient(text="butter", recipe_title="[staple]", recipe_url=""),
+            RawIngredient(text="1 dozen eggs", recipe_title="[added manually]", recipe_url=""),
+            RawIngredient(text="birthday candles", recipe_title="[added manually]", recipe_url=""),
+        ],
+    )
+    mock_manager = MagicMock()
+    mock_manager.load_current.return_value = session
+    MockManager.return_value = mock_manager
+    MockConfig.return_value = MagicMock()
+    mock_process.return_value = []
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["item", "remove", "1"])
+
+    assert result.exit_code == 0
+    texts = [it.text for it in session.extra_items]
+    assert "1 dozen eggs" not in texts
+    assert "butter" in texts        # staple untouched
+    assert "birthday candles" in texts
+
+
+@patch("fancy_grocery_list.cli.SessionManager")
+def test_item_remove_out_of_range_exits_nonzero(MockManager):
+    from fancy_grocery_list.models import GrocerySession, RawIngredient
+    from datetime import datetime, timezone
+
+    session = GrocerySession(
+        id="test",
+        created_at=datetime.now(tz=timezone.utc),
+        updated_at=datetime.now(tz=timezone.utc),
+        extra_items=[
+            RawIngredient(text="eggs", recipe_title="[added manually]", recipe_url=""),
+        ],
+    )
+    mock_manager = MagicMock()
+    mock_manager.load_current.return_value = session
+    MockManager.return_value = mock_manager
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["item", "remove", "5"])
+
+    assert result.exit_code == 1
+    assert len(session.extra_items) == 1  # unchanged
+
+
+@patch("fancy_grocery_list.cli.SessionManager")
+def test_item_remove_exits_nonzero_when_no_active_session(MockManager):
+    mock_manager = MagicMock()
+    mock_manager.load_current.side_effect = FileNotFoundError("No active session. Run: grocery new")
+    MockManager.return_value = mock_manager
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["item", "remove", "1"])
+
+    assert result.exit_code == 1
+    assert "No active session" in result.output
+
+
 def test_process_all_applies_scale_prefix():
     """_process_all must annotate ingredient text when scale != 1.0."""
     from fancy_grocery_list.cli import _process_all
