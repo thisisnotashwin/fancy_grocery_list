@@ -121,3 +121,37 @@ def test_pantry_empty_by_default(tmp_path):
     mgr = PantryManager(base_dir=tmp_path)
     assert mgr.list() == []
     assert mgr.names() == set()
+
+
+def test_pantry_items_are_auto_skipped(monkeypatch):
+    """Items whose names are in pantry_names are marked confirmed_have=True without prompting."""
+    prompt_called = {"n": 0}
+
+    def mock_prompt(*args, **kwargs):
+        prompt_called["n"] += 1
+        return "y"
+
+    monkeypatch.setattr("click.prompt", mock_prompt)
+    ingredients = [
+        _make_ingredient("olive oil"),   # in pantry
+        _make_ingredient("garlic"),      # not in pantry
+    ]
+    result = run_pantry_check(ingredients, pantry_names={"olive oil"})
+    assert result[0].confirmed_have is True   # auto-marked
+    assert prompt_called["n"] == 1            # only prompted for garlic
+
+
+def test_pantry_auto_skip_does_not_override_already_confirmed(monkeypatch):
+    """Items already confirmed are still skipped, regardless of pantry."""
+    monkeypatch.setattr("click.prompt", lambda *a, **kw: (_ for _ in ()).throw(AssertionError("should not prompt")))
+    ingredients = [_make_ingredient("garlic", confirmed_have=True)]
+    result = run_pantry_check(ingredients, pantry_names=set())
+    assert result[0].confirmed_have is True
+
+
+def test_no_pantry_names_behaves_as_before(monkeypatch):
+    """Calling without pantry_names still prompts for all unconfirmed items."""
+    monkeypatch.setattr("click.prompt", lambda *a, **kw: "y")
+    ingredients = [_make_ingredient("garlic")]
+    result = run_pantry_check(ingredients)
+    assert result[0].confirmed_have is True

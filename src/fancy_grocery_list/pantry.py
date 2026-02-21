@@ -33,7 +33,16 @@ class PantryManager:
         self._path.write_text(json.dumps([p.model_dump() for p in items], indent=2))
 
 
-def run_pantry_check(ingredients: list[ProcessedIngredient]) -> list[ProcessedIngredient]:
+def run_pantry_check(
+    ingredients: list[ProcessedIngredient],
+    pantry_names: set[str] | None = None,
+) -> list[ProcessedIngredient]:
+    # Auto-mark pantry items without prompting
+    if pantry_names:
+        for ingredient in ingredients:
+            if ingredient.confirmed_have is None and ingredient.name in pantry_names:
+                ingredient.confirmed_have = True
+
     to_check = [i for i in ingredients if i.confirmed_have is None]
 
     if not to_check:
