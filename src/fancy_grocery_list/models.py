@@ -31,6 +31,7 @@ class GrocerySession(BaseModel):
     created_at: datetime
     updated_at: datetime
     recipes: list[RecipeData] = Field(default_factory=list)
+    extra_items: list[RawIngredient] = Field(default_factory=list)
     processed_ingredients: list[ProcessedIngredient] = Field(default_factory=list)
     finalized: bool = False
     output_path: Optional[str] = None

@@ -32,3 +32,28 @@ def test_grocery_session_json_roundtrip(tmp_path):
 def test_recipe_data_stores_ingredients():
     recipe = RecipeData(title="Pasta", url="https://example.com", raw_ingredients=["1 cup flour", "2 eggs"])
     assert len(recipe.raw_ingredients) == 2
+
+
+def test_grocery_session_extra_items_defaults_to_empty():
+    session = GrocerySession(
+        id="2026-02-20-test",
+        created_at=datetime.now(tz=timezone.utc),
+        updated_at=datetime.now(tz=timezone.utc),
+    )
+    assert session.extra_items == []
+
+
+def test_grocery_session_loads_without_extra_items_field():
+    """Old sessions serialized without extra_items must still load."""
+    raw = {
+        "version": 1,
+        "id": "2026-02-20-old",
+        "created_at": "2026-02-20T00:00:00Z",
+        "updated_at": "2026-02-20T00:00:00Z",
+        "recipes": [],
+        "processed_ingredients": [],
+        "finalized": False,
+        "output_path": None,
+    }
+    session = GrocerySession.model_validate(raw)
+    assert session.extra_items == []
