@@ -260,3 +260,57 @@ def test_staple_list_command_empty(MockStapleManager):
 
     assert result.exit_code == 0
     assert "No staples" in result.output
+
+
+def test_process_all_applies_scale_prefix():
+    """_process_all must annotate ingredient text when scale != 1.0."""
+    from fancy_grocery_list.cli import _process_all
+    from fancy_grocery_list.models import GrocerySession, RecipeData
+    from datetime import datetime, timezone
+    from unittest.mock import MagicMock, patch
+
+    session = GrocerySession(
+        id="test",
+        created_at=datetime.now(tz=timezone.utc),
+        updated_at=datetime.now(tz=timezone.utc),
+        recipes=[RecipeData(title="Pasta", url="https://example.com", raw_ingredients=["1 cup flour"], scale=2.0)],
+    )
+    mock_manager = MagicMock()
+    mock_config = MagicMock()
+
+    captured_raws = []
+
+    def capture(raw_list, config):
+        captured_raws.extend(raw_list)
+        return []
+
+    with patch("fancy_grocery_list.cli.process", side_effect=capture):
+        _process_all(session, mock_manager, mock_config)
+
+    assert len(captured_raws) == 1
+    assert captured_raws[0].text == "[×2.0] 1 cup flour"
+
+
+def test_process_all_no_prefix_for_scale_1():
+    """_process_all must NOT add a prefix when scale == 1.0."""
+    from fancy_grocery_list.cli import _process_all
+    from fancy_grocery_list.models import GrocerySession, RecipeData
+    from datetime import datetime, timezone
+    from unittest.mock import MagicMock, patch
+
+    session = GrocerySession(
+        id="test",
+        created_at=datetime.now(tz=timezone.utc),
+        updated_at=datetime.now(tz=timezone.utc),
+        recipes=[RecipeData(title="Pasta", url="https://example.com", raw_ingredients=["1 cup flour"], scale=1.0)],
+    )
+    captured_raws = []
+
+    def capture(raw_list, config):
+        captured_raws.extend(raw_list)
+        return []
+
+    with patch("fancy_grocery_list.cli.process", side_effect=capture):
+        _process_all(session, MagicMock(), MagicMock())
+
+    assert captured_raws[0].text == "1 cup flour"

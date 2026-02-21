@@ -101,7 +101,11 @@ def recipe_add(html_source: str | None):
 
 def _process_all(session, manager, config: Config) -> None:
     recipe_raw = [
-        RawIngredient(text=ing, recipe_title=r.title, recipe_url=r.url)
+        RawIngredient(
+            text=f"[×{r.scale}] {ing}" if r.scale != 1.0 else ing,
+            recipe_title=r.title,
+            recipe_url=r.url,
+        )
         for r in session.recipes
         for ing in r.raw_ingredients
     ]
