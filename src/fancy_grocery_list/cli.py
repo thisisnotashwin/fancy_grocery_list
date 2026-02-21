@@ -12,6 +12,7 @@ from fancy_grocery_list.session import SessionManager
 from fancy_grocery_list.pantry import run_pantry_check
 from fancy_grocery_list.formatter import format_grocery_list
 from fancy_grocery_list.models import RawIngredient
+from fancy_grocery_list.staples import StapleManager
 
 console = Console()
 err_console = Console(stderr=True)
@@ -107,6 +108,81 @@ def _process_all(session, manager, config: Config) -> None:
     all_raw = recipe_raw + session.extra_items
     session.processed_ingredients = process(all_raw, config)
     manager.save(session)
+
+
+@cli.group("item")
+def item():
+    """Manage manually added items in the current session."""
+    pass
+
+
+@item.command("add")
+@click.argument("name")
+@click.argument("quantity", default="")
+def item_add(name: str, quantity: str):
+    """Add an item to the current session by name and quantity."""
+    manager = SessionManager()
+    try:
+        session = manager.load_current()
+    except FileNotFoundError as e:
+        err_console.print(f"[red]Error:[/red] {e}")
+        raise SystemExit(1)
+
+    try:
+        config = Config()
+    except ValidationError:
+        err_console.print("[red]Error:[/red] ANTHROPIC_API_KEY environment variable is not set.")
+        raise SystemExit(1)
+
+    text = f"{quantity} {name}".strip()
+    session.extra_items.append(RawIngredient(text=text, recipe_title="[added manually]", recipe_url=""))
+    console.print(f"  [green]✓[/green] Added: {text}")
+
+    console.print("[dim]Processing ingredients...[/dim]")
+    try:
+        _process_all(session, manager, config)
+        console.print(f"[green]✓[/green] Consolidated to {len(session.processed_ingredients)} ingredients.")
+    except ProcessorError as e:
+        console.print(f"[red]Error processing ingredients:[/red] {e}")
+        manager.save(session)
+
+
+@cli.group("staple")
+def staple():
+    """Manage your persistent staples list."""
+    pass
+
+
+@staple.command("add")
+@click.argument("name")
+@click.argument("quantity", default="")
+def staple_add(name: str, quantity: str):
+    """Add an item to your staples list (auto-added to every new session)."""
+    StapleManager().add(name, quantity)
+    label = f"{quantity} {name}".strip()
+    console.print(f"[green]✓[/green] Added staple: [bold]{label}[/bold]")
+
+
+@staple.command("remove")
+@click.argument("name")
+def staple_remove(name: str):
+    """Remove an item from your staples list."""
+    StapleManager().remove(name)
+    console.print(f"[green]✓[/green] Removed staple: [bold]{name}[/bold]")
+
+
+@staple.command("list")
+def staple_list():
+    """Show all staples that are added to every new session."""
+    staples = StapleManager().list()
+    if not staples:
+        console.print("No staples configured. Use [bold]grocery staple add[/bold] to add some.")
+        return
+    console.print("\n[bold]Staples[/bold] (added to every new session)\n")
+    for s in staples:
+        label = f"{s.quantity} {s.name}".strip()
+        console.print(f"  • {label}")
+    console.print()
 
 
 def _add_from_html(session, manager, html_source: str, config: Config) -> None:

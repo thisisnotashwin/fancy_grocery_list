@@ -164,3 +164,99 @@ def test_new_command_without_name(MockManager):
     result = runner.invoke(cli, ["new"])
     assert result.exit_code == 0
     mock_manager.new.assert_called_once_with(name=None)
+
+
+# --- item add tests ---
+
+@patch("fancy_grocery_list.cli.SessionManager")
+def test_item_add_exits_nonzero_when_no_active_session(MockManager):
+    mock_manager = MagicMock()
+    mock_manager.load_current.side_effect = FileNotFoundError("No active session. Run: grocery new")
+    MockManager.return_value = mock_manager
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["item", "add", "eggs", "1 dozen"])
+    assert result.exit_code == 1
+    assert "No active session" in result.output
+
+
+@patch("fancy_grocery_list.cli.process")
+@patch("fancy_grocery_list.cli.Config")
+@patch("fancy_grocery_list.cli.SessionManager")
+def test_item_add_appends_to_extra_items(MockManager, MockConfig, mock_process):
+    from fancy_grocery_list.models import GrocerySession
+    from datetime import datetime, timezone
+
+    mock_manager = MagicMock()
+    session = GrocerySession(
+        id="2026-02-20-test",
+        created_at=datetime.now(tz=timezone.utc),
+        updated_at=datetime.now(tz=timezone.utc),
+    )
+    mock_manager.load_current.return_value = session
+    MockManager.return_value = mock_manager
+    MockConfig.return_value = MagicMock()
+    mock_process.return_value = []
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["item", "add", "eggs", "1 dozen"])
+
+    assert result.exit_code == 0
+    assert len(session.extra_items) == 1
+    assert session.extra_items[0].text == "1 dozen eggs"
+    assert session.extra_items[0].recipe_title == "[added manually]"
+
+
+# --- staple tests ---
+
+@patch("fancy_grocery_list.cli.StapleManager")
+def test_staple_add_command(MockStapleManager):
+    mock_mgr = MagicMock()
+    MockStapleManager.return_value = mock_mgr
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["staple", "add", "eggs", "1 dozen"])
+
+    assert result.exit_code == 0
+    mock_mgr.add.assert_called_once_with("eggs", "1 dozen")
+
+
+@patch("fancy_grocery_list.cli.StapleManager")
+def test_staple_remove_command(MockStapleManager):
+    mock_mgr = MagicMock()
+    MockStapleManager.return_value = mock_mgr
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["staple", "remove", "eggs"])
+
+    assert result.exit_code == 0
+    mock_mgr.remove.assert_called_once_with("eggs")
+
+
+@patch("fancy_grocery_list.cli.StapleManager")
+def test_staple_list_command_shows_staples(MockStapleManager):
+    from fancy_grocery_list.staples import Staple
+    mock_mgr = MagicMock()
+    mock_mgr.list.return_value = [Staple(name="eggs", quantity="1 dozen"), Staple(name="butter")]
+    MockStapleManager.return_value = mock_mgr
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["staple", "list"])
+
+    assert result.exit_code == 0
+    assert "eggs" in result.output
+    assert "1 dozen" in result.output
+    assert "butter" in result.output
+
+
+@patch("fancy_grocery_list.cli.StapleManager")
+def test_staple_list_command_empty(MockStapleManager):
+    mock_mgr = MagicMock()
+    mock_mgr.list.return_value = []
+    MockStapleManager.return_value = mock_mgr
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["staple", "list"])
+
+    assert result.exit_code == 0
+    assert "No staples" in result.output
