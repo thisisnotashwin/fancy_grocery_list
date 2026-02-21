@@ -9,7 +9,7 @@ from fancy_grocery_list.fetcher import fetch, FetchError
 from fancy_grocery_list.scraper import scrape, ScrapeError
 from fancy_grocery_list.processor import process, ProcessorError
 from fancy_grocery_list.session import SessionManager
-from fancy_grocery_list.pantry import run_pantry_check
+from fancy_grocery_list.pantry import run_pantry_check, PantryManager
 from fancy_grocery_list.formatter import format_grocery_list
 from fancy_grocery_list.models import RawIngredient
 from fancy_grocery_list.staples import StapleManager
@@ -310,6 +310,44 @@ def staple_list():
     console.print()
 
 
+@cli.group("pantry")
+def pantry():
+    """Manage your persistent pantry (items you always keep stocked)."""
+    pass
+
+
+@pantry.command("add")
+@click.argument("name")
+@click.argument("quantity", default="")
+def pantry_add(name: str, quantity: str):
+    """Add an item to your pantry (auto-skipped during pantry check)."""
+    PantryManager().add(name, quantity)
+    label = f"{quantity} {name}".strip()
+    console.print(f"[green]✓[/green] Added to pantry: [bold]{label}[/bold]")
+
+
+@pantry.command("remove")
+@click.argument("name")
+def pantry_remove(name: str):
+    """Remove an item from your pantry."""
+    PantryManager().remove(name)
+    console.print(f"[green]✓[/green] Removed from pantry: [bold]{name}[/bold]")
+
+
+@pantry.command("list")
+def pantry_list():
+    """Show all items in your pantry."""
+    items = PantryManager().list()
+    if not items:
+        console.print("No pantry items. Use [bold]grocery pantry add[/bold] to add some.")
+        return
+    console.print("\n[bold]Pantry[/bold] (auto-skipped during pantry check)\n")
+    for p in items:
+        label = f"{p.quantity} {p.name}".strip()
+        console.print(f"  • {label}")
+    console.print()
+
+
 def _add_from_html(session, manager, html_source: str, config: Config, scale: float = 1.0) -> None:
     if html_source.startswith("http://") or html_source.startswith("https://"):
         url = html_source
@@ -330,6 +368,31 @@ def _add_from_html(session, manager, html_source: str, config: Config, scale: fl
         console.print(f"[green]✓[/green] Consolidated to {len(session.processed_ingredients)} ingredients.")
     except (ScrapeError, ProcessorError) as e:
         console.print(f"[red]Error:[/red] {e}")
+
+
+def _prompt_pantry_additions(newly_have: list, pantry_mgr: PantryManager) -> None:
+    """After pantry check, offer to save confirmed-have items to the persistent pantry."""
+    console.print("\n[bold]Add to pantry?[/bold] You said you have these — save so you're never asked again?\n")
+    for i, item in enumerate(newly_have, start=1):
+        console.print(f"  {i}. {item.name}")
+    console.print()
+    raw = click.prompt(
+        "  Enter numbers to save (e.g. 1 3), or press Enter to skip",
+        default="",
+        show_default=False,
+    ).strip()
+    if not raw:
+        return
+    selected_indices = set()
+    for part in raw.split():
+        if part.isdigit():
+            idx = int(part)
+            if 1 <= idx <= len(newly_have):
+                selected_indices.add(idx)
+    for idx in selected_indices:
+        item = newly_have[idx - 1]
+        pantry_mgr.add(item.name)
+        console.print(f"  [green]✓[/green] Saved to pantry: {item.name}")
 
 
 @cli.command()
@@ -354,7 +417,20 @@ def done():
         )
         return
 
-    session.processed_ingredients = run_pantry_check(session.processed_ingredients)
+    pantry_mgr = PantryManager()
+    pantry_names = pantry_mgr.names()
+
+    session.processed_ingredients = run_pantry_check(
+        session.processed_ingredients, pantry_names=pantry_names
+    )
+
+    # Self-population: offer to save newly confirmed "have" items to pantry
+    newly_have = [
+        i for i in session.processed_ingredients
+        if i.confirmed_have is True and i.name not in pantry_names
+    ]
+    if newly_have:
+        _prompt_pantry_additions(newly_have, pantry_mgr)
 
     need_to_buy = [i for i in session.processed_ingredients if i.confirmed_have is False]
     console.print(f"\n[bold]{len(need_to_buy)}[/bold] items to buy.\n")

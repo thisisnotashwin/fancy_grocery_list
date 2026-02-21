@@ -1,6 +1,7 @@
 from click.testing import CliRunner
 from unittest.mock import MagicMock, patch
 from fancy_grocery_list.cli import cli
+from fancy_grocery_list.pantry import PantryManager
 
 
 def test_module_invocation_works():
@@ -613,3 +614,76 @@ def test_recipe_add_scale_stored_on_recipe(MockManager, MockConfig, mock_process
     assert result.exit_code == 0
     assert len(session.recipes) == 1
     assert session.recipes[0].scale == 2.0
+
+
+def test_done_auto_skips_pantry_items(tmp_path, monkeypatch):
+    """Items in the pantry are not prompted during pantry check."""
+    from fancy_grocery_list.models import ProcessedIngredient, GrocerySession
+    from fancy_grocery_list.session import SessionManager
+    from datetime import datetime, timezone
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "key")
+
+    # Set up a session with one ingredient
+    mgr = SessionManager(base_dir=tmp_path)
+    session = mgr.new()
+    session.processed_ingredients = [
+        ProcessedIngredient(
+            name="olive oil", quantity="30ml [2 tbsp]", section="Oils & Condiments",
+            raw_sources=["olive oil"], confirmed_have=None
+        )
+    ]
+    mgr.save(session)
+
+    # Pantry has olive oil
+    pantry_mgr = PantryManager(base_dir=tmp_path)
+    pantry_mgr.add("olive oil")
+
+    prompt_calls = []
+    monkeypatch.setattr("click.prompt", lambda *a, **kw: prompt_calls.append(a) or "")
+    monkeypatch.setattr("fancy_grocery_list.cli.PantryManager", lambda: pantry_mgr)
+    monkeypatch.setattr("fancy_grocery_list.cli.SessionManager", lambda: mgr)
+    monkeypatch.setattr("fancy_grocery_list.cli.format_grocery_list", lambda items, cfg: "list output")
+
+    from fancy_grocery_list.cli import cli
+    runner = CliRunner()
+    result = runner.invoke(cli, ["done"])
+    # olive oil should be auto-skipped — no "Do you have" prompt
+    pantry_prompts = [c for c in prompt_calls if "olive oil" in str(c)]
+    assert pantry_prompts == []
+
+
+# --- pantry tests ---
+
+def test_pantry_add_command(tmp_path, monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "key")
+    monkeypatch.setattr("fancy_grocery_list.cli.PantryManager", lambda: PantryManager(base_dir=tmp_path))
+    from fancy_grocery_list.cli import cli
+    runner = CliRunner()
+    result = runner.invoke(cli, ["pantry", "add", "olive oil"])
+    assert result.exit_code == 0
+    assert "olive oil" in result.output
+
+
+def test_pantry_list_command(tmp_path, monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "key")
+    mgr = PantryManager(base_dir=tmp_path)
+    mgr.add("olive oil")
+    monkeypatch.setattr("fancy_grocery_list.cli.PantryManager", lambda: PantryManager(base_dir=tmp_path))
+    from fancy_grocery_list.cli import cli
+    runner = CliRunner()
+    result = runner.invoke(cli, ["pantry", "list"])
+    assert result.exit_code == 0
+    assert "olive oil" in result.output
+
+
+def test_pantry_remove_command(tmp_path, monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "key")
+    mgr = PantryManager(base_dir=tmp_path)
+    mgr.add("olive oil")
+    monkeypatch.setattr("fancy_grocery_list.cli.PantryManager", lambda: PantryManager(base_dir=tmp_path))
+    from fancy_grocery_list.cli import cli
+    runner = CliRunner()
+    result = runner.invoke(cli, ["pantry", "remove", "olive oil"])
+    assert result.exit_code == 0
+    assert "olive oil" in result.output
