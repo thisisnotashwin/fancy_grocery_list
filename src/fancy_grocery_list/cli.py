@@ -125,6 +125,42 @@ def recipe_list():
     console.print()
 
 
+@recipe.command("remove")
+@click.argument("index", type=int)
+def recipe_remove(index: int):
+    """Remove a recipe from the current session by its index (from 'recipe list')."""
+    manager = SessionManager()
+    try:
+        session = manager.load_current()
+    except FileNotFoundError as e:
+        err_console.print(f"[red]Error:[/red] {e}")
+        raise SystemExit(1)
+
+    if index < 1 or index > len(session.recipes):
+        err_console.print(f"[red]Error:[/red] Index {index} is out of range. Use 'grocery recipe list' to see valid indices.")
+        raise SystemExit(1)
+
+    removed = session.recipes.pop(index - 1)
+    console.print(f"[green]✓[/green] Removed: {removed.title}")
+
+    if session.recipes or session.extra_items:
+        try:
+            config = Config()
+        except ValidationError:
+            err_console.print("[red]Error:[/red] ANTHROPIC_API_KEY environment variable is not set.")
+            raise SystemExit(1)
+        console.print("[dim]Re-processing ingredients...[/dim]")
+        try:
+            _process_all(session, manager, config)
+            console.print(f"[green]✓[/green] Consolidated to {len(session.processed_ingredients)} ingredients.")
+        except ProcessorError as e:
+            console.print(f"[red]Error processing ingredients:[/red] {e}")
+            manager.save(session)
+    else:
+        session.processed_ingredients = []
+        manager.save(session)
+
+
 def _process_all(session, manager, config: Config) -> None:
     recipe_raw = [
         RawIngredient(

@@ -386,6 +386,71 @@ def test_recipe_add_help_shows_scale_flag():
     assert "--scale" in result.output
 
 
+@patch("fancy_grocery_list.cli.process")
+@patch("fancy_grocery_list.cli.Config")
+@patch("fancy_grocery_list.cli.SessionManager")
+def test_recipe_remove_removes_by_index(MockManager, MockConfig, mock_process):
+    from fancy_grocery_list.models import GrocerySession, RecipeData
+    from datetime import datetime, timezone
+
+    session = GrocerySession(
+        id="test",
+        created_at=datetime.now(tz=timezone.utc),
+        updated_at=datetime.now(tz=timezone.utc),
+        recipes=[
+            RecipeData(title="Pasta", url="https://example.com/pasta", raw_ingredients=["1 cup flour"]),
+            RecipeData(title="Tikka", url="https://example.com/tikka", raw_ingredients=["1 lb chicken"]),
+        ],
+    )
+    mock_manager = MagicMock()
+    mock_manager.load_current.return_value = session
+    MockManager.return_value = mock_manager
+    MockConfig.return_value = MagicMock()
+    mock_process.return_value = []
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["recipe", "remove", "1"])
+
+    assert result.exit_code == 0
+    assert len(session.recipes) == 1
+    assert session.recipes[0].title == "Tikka"
+
+
+@patch("fancy_grocery_list.cli.SessionManager")
+def test_recipe_remove_out_of_range_exits_nonzero(MockManager):
+    from fancy_grocery_list.models import GrocerySession, RecipeData
+    from datetime import datetime, timezone
+
+    session = GrocerySession(
+        id="test",
+        created_at=datetime.now(tz=timezone.utc),
+        updated_at=datetime.now(tz=timezone.utc),
+        recipes=[RecipeData(title="Pasta", url="https://example.com", raw_ingredients=["1 cup flour"])],
+    )
+    mock_manager = MagicMock()
+    mock_manager.load_current.return_value = session
+    MockManager.return_value = mock_manager
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["recipe", "remove", "5"])
+
+    assert result.exit_code == 1
+    assert len(session.recipes) == 1  # unchanged
+
+
+@patch("fancy_grocery_list.cli.SessionManager")
+def test_recipe_remove_exits_nonzero_when_no_active_session(MockManager):
+    mock_manager = MagicMock()
+    mock_manager.load_current.side_effect = FileNotFoundError("No active session. Run: grocery new")
+    MockManager.return_value = mock_manager
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["recipe", "remove", "1"])
+
+    assert result.exit_code == 1
+    assert "No active session" in result.output
+
+
 @patch("fancy_grocery_list.cli.fetch")
 @patch("fancy_grocery_list.cli.scrape")
 @patch("fancy_grocery_list.cli.process")
